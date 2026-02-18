@@ -1,0 +1,41 @@
+# Default configuration for burnout detection pipeline
+# Override values by passing a custom config file to the CLI
+
+data:
+  survey_path: "data/raw/survey.csv"
+  physiological_path: null  # Optional: "data/raw/physiological.csv"
+  test_size: 0.2
+  val_size: 0.15
+  random_state: 42
+
+preprocessing:
+  impute: true
+  numeric_strategy: "median"
+  remove_outliers: false
+  outlier_columns: null
+  encode_categorical: true
+  scale_features: true
+
+features:
+  include_neuro_features: true
+  include_interaction_features: true
+
+model:
+  name: "gradient_boosting"  # logistic_regression, random_forest, gradient_boosting
+  params: {}
+  cross_validate: true
+  cv_folds: 5
+  cv_scoring: "f1"
+
+evaluation:
+  threshold: 0.5
+  bias_audit: true
+  bias_attributes:
+    - "neurological_condition"
+    - "gender"
+  disparity_threshold: 0.1
+
+output:
+  model_dir: "outputs/models"
+  reports_dir: "outputs/reports"
+  version: null  # Auto-generated if null

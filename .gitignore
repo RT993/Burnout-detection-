@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data — never commit raw data or large processed files
+data/raw/*
+data/external/*
+!data/raw/.gitkeep
+!data/external/.gitkeep
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Model artifacts
+outputs/
+models/*.pkl
+models/*.joblib
+models/*.pt
+models/*.onnx
+*.pkl
+*.joblib
+
+# MLflow
+mlruns/
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# mypy
+.mypy_cache/
