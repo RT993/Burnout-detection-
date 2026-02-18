@@ -2,8 +2,8 @@
 # Override values by passing a custom config file to the CLI
 
 data:
-  survey_path: "data/raw/survey.csv"
-  physiological_path: null  # Optional: "data/raw/physiological.csv"
+  survey_path: "data/processed/survey.csv"
+  physiological_path: null  # Optional: "data/processed/physiological.csv"
   test_size: 0.2
   val_size: 0.15
   random_state: 42

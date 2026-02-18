@@ -72,14 +72,25 @@ def run_pipeline(config: dict[str, Any]) -> None:
         sys.exit(1)
 
     # 3. Preprocess
+    # Stash identity, label, and sensitive-attribute columns so they are never
+    # encoded/scaled and can be used with original labels in the bias audit.
+    bias_attrs = eval_cfg.get("bias_attributes", [])
+    PASSTHROUGH_COLS = list({"participant_id", "burnout_label", *bias_attrs})
+    passthrough = {c: df[c].copy() for c in PASSTHROUGH_COLS if c in df.columns}
+    df_to_scale = df.drop(columns=[c for c in PASSTHROUGH_COLS if c in df.columns])
+
     print("Preprocessing...")
     df_processed, artifacts = preprocess_pipeline(
-        df,
+        df_to_scale,
         impute=preproc_cfg.get("impute", True),
         remove_outlier_cols=preproc_cfg.get("outlier_columns"),
         encode=preproc_cfg.get("encode_categorical", True),
         scale=preproc_cfg.get("scale_features", True),
     )
+
+    # Re-attach passthrough columns (index is reset by pipeline, align by position)
+    for col, series in passthrough.items():
+        df_processed[col] = series.values
 
     # 4. Feature engineering
     print("Building features...")
@@ -154,13 +165,16 @@ def run_pipeline(config: dict[str, Any]) -> None:
     if metrics.get("roc_auc") is not None:
         print(f"  ROC AUC:   {metrics['roc_auc']:.4f}")
 
-    # 9. Bias audit
+    # 9. Bias audit — use the original (pre-encoding) sensitive attribute values
     if eval_cfg.get("bias_audit", True):
         print("Running bias audit...")
         sensitive = {}
+        test_indices = X_test.index
         for attr in eval_cfg.get("bias_attributes", []):
-            if attr in df_features.columns:
-                test_indices = X_test.index
+            if attr in passthrough:
+                # passthrough series was aligned by position; recover test rows
+                sensitive[attr] = passthrough[attr].iloc[test_indices].values
+            elif attr in df_features.columns:
                 sensitive[attr] = df_features.loc[test_indices, attr].values
 
         if sensitive:
