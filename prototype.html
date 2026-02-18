@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Burnout Detector – Prototype</title>
+<style>
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --card2: #2c2c2e;
+    --text: #ffffff;
+    --text2: #8e8e93;
+    --green: #30d158;
+    --yellow: #ffd60a;
+    --orange: #ff9f0a;
+    --red: #ff453a;
+    --blue: #0a84ff;
+    --indigo: #5e5ce6;
+    --purple: #bf5af2;
+    --mint: #63e6be;
+    --tab-bg: #1c1c1e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Phone Frame */
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: var(--bg);
+    border-radius: 47px;
+    border: 3px solid #333;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Status Bar */
+  .status-bar {
+    height: 54px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 30px 8px;
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .status-bar .time { font-size: 16px; font-weight: 700; }
+  .status-icons { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+
+  /* Dynamic Island */
+  .dynamic-island {
+    width: 126px;
+    height: 36px;
+    background: #000;
+    border-radius: 20px;
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+  }
+
+  /* Screen Content */
+  .screen {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 20px 20px;
+    display: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen.active { display: block; }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* Nav Title */
+  .nav-title {
+    font-size: 34px;
+    font-weight: 800;
+    margin: 8px 0 20px;
+    letter-spacing: -0.5px;
+  }
+
+  /* Tab Bar */
+  .tab-bar {
+    height: 83px;
+    background: var(--tab-bg);
+    border-top: 0.5px solid #333;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 8px;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab svg { width: 24px; height: 24px; fill: var(--text2); }
+  .tab span { font-size: 10px; color: var(--text2); font-weight: 500; }
+  .tab.active svg { fill: var(--blue); }
+  .tab.active span { color: var(--blue); }
+
+  /* Score Ring */
+  .score-ring-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 10px 0 24px;
+  }
+  .score-ring {
+    width: 200px;
+    height: 200px;
+    position: relative;
+  }
+  .score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-ring .bg-ring { stroke: #333; }
+  .score-ring .progress-ring {
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.5s ease-out;
+  }
+  .score-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .score-number { font-size: 56px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+  .score-label { font-size: 15px; font-weight: 600; margin-top: 4px; }
+  .score-subtitle { font-size: 15px; color: var(--text2); margin-top: 8px; font-weight: 500; }
+
+  /* Metric Cards Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .metric-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .metric-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .metric-icon { font-size: 14px; }
+  .metric-title { font-size: 13px; color: var(--text2); font-weight: 500; }
+  .metric-value { font-size: 24px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .metric-change { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+  .metric-change.bad { color: var(--red); }
+  .metric-change.good { color: var(--green); }
+  .metric-change.neutral { color: var(--text2); }
+
+  /* Section Card */
+  .section-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  /* Risk Triggers */
+  .trigger-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+  }
+  .trigger-row + .trigger-row { border-top: 0.5px solid #333; }
+  .trigger-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .trigger-metric { font-size: 15px; font-weight: 600; }
+  .trigger-msg { font-size: 13px; color: var(--text2); }
+
+  /* Suggested Intervention Card */
+  .intervention-suggest {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+  .suggest-label { font-size: 12px; color: var(--text2); margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .suggest-content { display: flex; align-items: center; gap: 14px; }
+  .suggest-icon {
+    width: 48px; height: 48px;
+    background: rgba(10, 132, 255, 0.15);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .suggest-text h3 { font-size: 17px; font-weight: 600; }
+  .suggest-text p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .suggest-chevron { color: var(--text2); font-size: 16px; margin-left: auto; }
+
+  /* Mini Chart */
+  .mini-chart {
+    height: 80px;
+    position: relative;
+    margin-top: 8px;
+  }
+  .chart-svg { width: 100%; height: 100%; }
+
+  /* MOOD SCREEN */
+  .mood-question {
+    font-size: 26px;
+    font-weight: 700;
+    text-align: center;
+    margin: 40px 0 8px;
+  }
+  .mood-subtitle {
+    font-size: 15px;
+    color: var(--text2);
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .mood-options {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+  .mood-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+    min-width: 62px;
+  }
+  .mood-btn:hover { background: var(--card); }
+  .mood-btn.selected {
+    background: rgba(10, 132, 255, 0.15);
+    border-color: var(--blue);
+    transform: scale(1.1);
+  }
+  .mood-emoji { font-size: 40px; }
+  .mood-label { font-size: 11px; color: var(--text2); font-weight: 500; }
+  .mood-btn.selected .mood-label { color: var(--blue); }
+
+  .save-btn {
+    width: 100%;
+    padding: 18px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    font-family: inherit;
+  }
+  .save-btn.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .week-moods {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 8px;
+  }
+  .week-mood-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .week-mood-item .emoji { font-size: 24px; }
+  .week-mood-item .day { font-size: 11px; color: var(--text2); }
+
+  /* TRENDS SCREEN */
+  .segment-picker {
+    display: flex;
+    background: var(--card);
+    border-radius: 10px;
+    padding: 2px;
+    margin-bottom: 20px;
+  }
+  .segment {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+  .segment.active {
+    background: var(--card2);
+    color: var(--text);
+  }
+
+  .trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .trend-header-left { display: flex; align-items: center; gap: 8px; }
+  .trend-icon { font-size: 16px; }
+  .trend-value { font-size: 20px; font-weight: 700; }
+
+  .score-range {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  .score-range span { font-size: 11px; font-weight: 500; }
+
+  /* Mood Heatmap */
+  .mood-heatmap {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin: 8px 0;
+  }
+  .heatmap-cell {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .heatmap-day { font-size: 9px; color: var(--text2); margin-top: 2px; }
+
+  /* Score Bars */
+  .score-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .score-bar-label { font-size: 12px; color: var(--text2); width: 80px; text-align: right; }
+  .score-bar-track {
+    flex: 1;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 1s ease-out;
+  }
+  .score-bar-value { font-size: 12px; font-weight: 600; width: 28px; }
+
+  /* INTERVENTIONS SCREEN */
+  .filter-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .filter-chips::-webkit-scrollbar { display: none; }
+  .chip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--text2);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .chip.active {
+    background: var(--blue);
+    color: white;
+  }
+
+  .intervention-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .intervention-card:active { transform: scale(0.98); }
+  .int-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .int-info { flex: 1; }
+  .int-info h3 { font-size: 16px; font-weight: 600; }
+  .int-info p { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .int-duration {
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .int-duration .num { font-size: 20px; font-weight: 700; }
+  .int-duration .unit { font-size: 11px; color: var(--text2); }
+  .int-chevron { color: var(--text2); font-size: 14px; }
+
+  /* SETTINGS SCREEN */
+  .settings-section { margin-bottom: 24px; }
+  .settings-section-title {
+    font-size: 13px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    padding-left: 16px;
+  }
+  .settings-group {
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .settings-row + .settings-row { border-top: 0.5px solid #333; }
+  .settings-row-icon { font-size: 17px; width: 28px; text-align: center; }
+  .settings-row-label { font-size: 16px; flex: 1; }
+  .settings-row-value { font-size: 15px; color: var(--text2); }
+  .settings-row-badge {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .badge-green { background: rgba(48, 209, 88, 0.15); color: var(--green); }
+  .badge-blue { background: rgba(10, 132, 255, 0.15); color: var(--blue); }
+  .badge-gray { color: var(--text2); }
+
+  /* Toggle switch */
+  .toggle {
+    width: 51px;
+    height: 31px;
+    background: #333;
+    border-radius: 16px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--green); }
+  .toggle::after {
+    content: '';
+    width: 27px;
+    height: 27px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+
+  .settings-row.danger .settings-row-label { color: var(--red); }
+  .settings-row.danger .settings-row-icon { color: var(--red); }
+
+  /* Onboarding Overlay */
+  .onboarding-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    transition: opacity 0.5s, transform 0.5s;
+  }
+  .onboarding-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px);
+  }
+  .onboarding-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    text-align: center;
+  }
+  .onboarding-icon {
+    font-size: 72px;
+    margin-bottom: 32px;
+  }
+  .onboarding-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    line-height: 1.2;
+  }
+  .onboarding-desc {
+    font-size: 17px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .onboarding-dots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 24px 0;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #333;
+    transition: all 0.3s;
+  }
+  .dot.active { background: var(--blue); width: 24px; border-radius: 4px; }
+  .onboarding-bottom {
+    padding: 0 32px 50px;
+  }
+  .onboarding-btn {
+    width: 100%;
+    padding: 18px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 12px;
+  }
+  .skip-btn {
+    width: 100%;
+    padding: 10px;
+    background: none;
+    color: var(--text2);
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .privacy-note {
+    font-size: 13px;
+    color: var(--text2);
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* Checked-in state */
+  .checked-in {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 60px 0 40px;
+  }
+  .checked-in .big-emoji { font-size: 80px; }
+  .checked-in h2 { font-size: 22px; font-weight: 700; }
+  .checked-in p { font-size: 15px; color: var(--text2); }
+
+  /* Mood legend */
+  .mood-legend {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  @media (max-height: 860px) {
+    .phone {
+      height: 100vh;
+      border-radius: 0;
+      border: none;
+      width: 100%;
+      max-width: 430px;
+    }
+    .dynamic-island { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <!-- Dynamic Island -->
+  <div class="dynamic-island"></div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="time">9:41</span>
+    <div class="status-icons">
+      <span>&#9679;&#9679;&#9679;&#9679;</span>
+      <span>WiFi</span>
+      <span>100%</span>
+    </div>
+  </div>
+
+  <!-- Onboarding Overlay -->
+  <div class="onboarding-overlay" id="onboarding">
+    <div class="onboarding-content" id="onboardingContent">
+      <div class="onboarding-icon" id="obIcon">&#9881;&#65039;</div>
+      <div class="onboarding-title" id="obTitle">Detect Burnout Early</div>
+      <div class="onboarding-desc" id="obDesc">We analyze your sleep, activity, screen time, and mood to detect burnout before you feel it.</div>
+    </div>
+    <div class="onboarding-dots" id="obDots">
+      <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+    <div class="onboarding-bottom">
+      <button class="onboarding-btn" id="obBtn" onclick="nextOnboarding()">Next</button>
+      <button class="skip-btn" onclick="closeOnboarding()">Skip</button>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="screen active" id="screen-dashboard">
+    <div class="nav-title">Dashboard</div>
+
+    <div class="score-ring-container">
+      <div class="score-ring">
+        <svg viewBox="0 0 200 200">
+          <circle class="bg-ring" cx="100" cy="100" r="82" fill="none" stroke-width="16"/>
+          <circle class="progress-ring" id="scoreRing" cx="100" cy="100" r="82"
+            fill="none" stroke-width="16"
+            stroke="var(--yellow)"
+            stroke-dasharray="515.22"
+            stroke-dashoffset="195.78"/>
+        </svg>
+        <div class="score-center">
+          <div class="score-number" style="color: var(--yellow)">62</div>
+          <div class="score-label" style="color: var(--yellow)">At Risk</div>
+        </div>
+      </div>
+      <div class="score-subtitle">Burnout Score</div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-icon">&#127769;</span>
+          <span class="metric-title">Sleep</span>
+        </div>
+        <div class="metric-value">6.2h</div>
+        <div class="metric-change bad">&#8595; 12%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-icon">&#128241;</span>
+          <span class="metric-title">Screen Time</span>
+        </div>
+        <div class="metric-value">9.4h</div>
+        <div class="metric-change bad">&#8593; 18%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-icon">&#128694;</span>
+          <span class="metric-title">Steps</span>
+        </div>
+        <div class="metric-value">4.2k</div>
+        <div class="metric-change bad">&#8595; 20%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-icon">&#128578;</span>
+          <span class="metric-title">Mood</span>
+        </div>
+        <div class="metric-value">&#128531;</div>
+        <div class="metric-change bad">Trending Down</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Risk Triggers</div>
+      <div class="trigger-row">
+        <div class="trigger-dot" style="background: var(--red)"></div>
+        <div>
+          <div class="trigger-metric">Screen Time</div>
+          <div class="trigger-msg">Screen time is above your baseline</div>
+        </div>
+      </div>
+      <div class="trigger-row">
+        <div class="trigger-dot" style="background: var(--orange)"></div>
+        <div>
+          <div class="trigger-metric">Activity</div>
+          <div class="trigger-msg">Physical activity has dropped</div>
+        </div>
+      </div>
+      <div class="trigger-row">
+        <div class="trigger-dot" style="background: var(--orange)"></div>
+        <div>
+          <div class="trigger-metric">Sleep</div>
+          <div class="trigger-msg">Your sleep quality has been declining</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="intervention-suggest" onclick="switchTab('interventions')">
+      <div class="suggest-label">
+        <span>Suggested Reset</span>
+        <span>3 min</span>
+      </div>
+      <div class="suggest-content">
+        <div class="suggest-icon">&#127744;</div>
+        <div class="suggest-text">
+          <h3>Box Breathing</h3>
+          <p>Calm your nervous system with a 2-minute breathing exercise</p>
+        </div>
+        <span class="suggest-chevron">&#8250;</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">7-Day Trend</div>
+      <div class="mini-chart">
+        <svg class="chart-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--orange)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--orange)" stop-opacity="0.05"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,80 L0,56 L53,45 L106,52 L160,35 L213,22 L266,28 L320,14 L320,80 Z" fill="url(#trendGrad)"/>
+          <polyline points="0,56 53,45 106,52 160,35 213,22 266,28 320,14"
+            fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MOOD CHECK ===== -->
+  <div class="screen" id="screen-mood">
+    <div class="nav-title">Mood Check</div>
+
+    <div id="moodCheckIn">
+      <div class="mood-question">How are you feeling?</div>
+      <div class="mood-subtitle">Tap the emoji that matches your current state</div>
+
+      <div class="mood-options">
+        <div class="mood-btn" onclick="selectMood(this, 'Exhausted')">
+          <span class="mood-emoji">&#128553;</span>
+          <span class="mood-label">Exhausted</span>
+        </div>
+        <div class="mood-btn" onclick="selectMood(this, 'Stressed')">
+          <span class="mood-emoji">&#128547;</span>
+          <span class="mood-label">Stressed</span>
+        </div>
+        <div class="mood-btn" onclick="selectMood(this, 'Flat')">
+          <span class="mood-emoji">&#128528;</span>
+          <span class="mood-label">Flat</span>
+        </div>
+        <div class="mood-btn" onclick="selectMood(this, 'Okay')">
+          <span class="mood-emoji">&#128578;</span>
+          <span class="mood-label">Okay</span>
+        </div>
+        <div class="mood-btn" onclick="selectMood(this, 'Great')">
+          <span class="mood-emoji">&#128516;</span>
+          <span class="mood-label">Great</span>
+        </div>
+      </div>
+
+      <button class="save-btn" id="saveMoodBtn" onclick="saveMood()">Save</button>
+    </div>
+
+    <div id="moodCheckedIn" style="display:none">
+      <div class="checked-in">
+        <span class="big-emoji" id="checkedEmoji">&#128528;</span>
+        <h2>You checked in today</h2>
+        <p id="checkedLabel">Feeling flat</p>
+        <p style="font-size:13px; color:var(--text2); margin-top:4px">9:41 AM</p>
+      </div>
+    </div>
+
+    <div class="section-card" style="margin-top: 32px;">
+      <div class="section-title">This Week</div>
+      <div class="week-moods">
+        <div class="week-mood-item"><span class="emoji">&#128516;</span><span class="day">Mon</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128578;</span><span class="day">Tue</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128528;</span><span class="day">Wed</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128547;</span><span class="day">Thu</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128553;</span><span class="day">Fri</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128547;</span><span class="day">Sat</span></div>
+        <div class="week-mood-item"><span class="emoji">&#128528;</span><span class="day">Sun</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TRENDS ===== -->
+  <div class="screen" id="screen-trends">
+    <div class="nav-title">Trends</div>
+
+    <div class="segment-picker">
+      <div class="segment active" onclick="selectSegment(this)">7 Days</div>
+      <div class="segment" onclick="selectSegment(this)">14 Days</div>
+      <div class="segment" onclick="selectSegment(this)">30 Days</div>
+    </div>
+
+    <div class="section-card">
+      <div class="trend-header">
+        <span class="section-title" style="margin:0">Burnout Score</span>
+        <span class="trend-value" style="color: var(--yellow)">62</span>
+      </div>
+      <div class="mini-chart">
+        <svg class="chart-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="burnoutGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--orange)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--orange)" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,80 L0,65 L53,58 L106,60 L160,48 L213,35 L266,38 L320,24 L320,80 Z" fill="url(#burnoutGrad)"/>
+          <polyline points="0,65 53,58 106,60 160,48 213,35 266,38 320,24"
+            fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="score-range">
+        <span style="color: var(--green)">0 Stable</span>
+        <span style="color: var(--yellow)">40 At Risk</span>
+        <span style="color: var(--red)">70+ Burnout</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="trend-header">
+        <div class="trend-header-left">
+          <span class="trend-icon">&#127769;</span>
+          <span class="section-title" style="margin:0">Sleep</span>
+        </div>
+        <span class="trend-value" style="font-size:16px; color:var(--text2)">6.2h</span>
+      </div>
+      <div class="mini-chart">
+        <svg class="chart-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sleepGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--indigo)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--indigo)" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,80 L0,20 L53,24 L106,30 L160,28 L213,40 L266,48 L320,52 L320,80 Z" fill="url(#sleepGrad)"/>
+          <polyline points="0,20 53,24 106,30 160,28 213,40 266,48 320,52"
+            fill="none" stroke="var(--indigo)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="0" y1="32" x2="320" y2="32" stroke="var(--green)" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+        </svg>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:4px">
+        <div style="width:16px; height:1px; background:var(--green); opacity:0.5"></div>
+        <span style="font-size:11px; color:var(--text2)">7.5h target</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="trend-header">
+        <div class="trend-header-left">
+          <span class="trend-icon">&#128578;</span>
+          <span class="section-title" style="margin:0">Mood</span>
+        </div>
+      </div>
+      <div class="mood-heatmap">
+        <div class="heatmap-cell" style="background:rgba(48,209,88,0.3)">&#128516;<span class="heatmap-day">M</span></div>
+        <div class="heatmap-cell" style="background:rgba(99,230,190,0.3)">&#128578;<span class="heatmap-day">T</span></div>
+        <div class="heatmap-cell" style="background:rgba(255,214,10,0.3)">&#128528;<span class="heatmap-day">W</span></div>
+        <div class="heatmap-cell" style="background:rgba(255,159,10,0.3)">&#128547;<span class="heatmap-day">T</span></div>
+        <div class="heatmap-cell" style="background:rgba(255,69,58,0.3)">&#128553;<span class="heatmap-day">F</span></div>
+        <div class="heatmap-cell" style="background:rgba(255,159,10,0.3)">&#128547;<span class="heatmap-day">S</span></div>
+        <div class="heatmap-cell" style="background:rgba(255,214,10,0.3)">&#128528;<span class="heatmap-day">S</span></div>
+      </div>
+      <div class="mood-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Great</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--mint)"></div>Okay</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Flat</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Stressed</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Exhausted</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="trend-header">
+        <div class="trend-header-left">
+          <span class="trend-icon">&#128694;</span>
+          <span class="section-title" style="margin:0">Activity</span>
+        </div>
+        <span style="font-size:14px; color:var(--text2)">4,200 steps</span>
+      </div>
+      <div class="mini-chart">
+        <svg class="chart-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="actGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--green)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--green)" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,80 L0,18 L53,22 L106,25 L160,35 L213,42 L266,50 L320,55 L320,80 Z" fill="url(#actGrad)"/>
+          <polyline points="0,18 53,22 106,25 160,35 213,42 266,50 320,55"
+            fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Score Breakdown</div>
+      <div class="score-bar-row">
+        <span class="score-bar-label">Sleep</span>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:58%; background:var(--indigo)"></div></div>
+        <span class="score-bar-value">58</span>
+      </div>
+      <div class="score-bar-row">
+        <span class="score-bar-label">Screen Time</span>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:72%; background:var(--orange)"></div></div>
+        <span class="score-bar-value">72</span>
+      </div>
+      <div class="score-bar-row">
+        <span class="score-bar-label">Mood</span>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:55%; background:var(--yellow)"></div></div>
+        <span class="score-bar-value">55</span>
+      </div>
+      <div class="score-bar-row">
+        <span class="score-bar-label">Activity</span>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:65%; background:var(--green)"></div></div>
+        <span class="score-bar-value">65</span>
+      </div>
+      <div class="score-bar-row">
+        <span class="score-bar-label">Workload</span>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:48%; background:var(--red)"></div></div>
+        <span class="score-bar-value">48</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== INTERVENTIONS ===== -->
+  <div class="screen" id="screen-interventions">
+    <div class="nav-title">Interventions</div>
+
+    <div class="filter-chips">
+      <div class="chip active" onclick="filterChip(this)">All</div>
+      <div class="chip" onclick="filterChip(this)">Breathing</div>
+      <div class="chip" onclick="filterChip(this)">Movement</div>
+      <div class="chip" onclick="filterChip(this)">Social</div>
+      <div class="chip" onclick="filterChip(this)">Digital Detox</div>
+      <div class="chip" onclick="filterChip(this)">Sound</div>
+      <div class="chip" onclick="filterChip(this)">Emergency</div>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(10,132,255,0.15); color:var(--blue)">&#127744;</div>
+      <div class="int-info">
+        <h3>Box Breathing</h3>
+        <p>Calm your nervous system with a 2-minute breathing exercise</p>
+      </div>
+      <div class="int-duration"><span class="num">2</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(10,132,255,0.15); color:var(--blue)">&#127744;</div>
+      <div class="int-info">
+        <h3>4-7-8 Breathing</h3>
+        <p>Deep relaxation technique to reduce stress</p>
+      </div>
+      <div class="int-duration"><span class="num">3</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(48,209,88,0.15); color:var(--green)">&#128694;</div>
+      <div class="int-info">
+        <h3>10-Minute Walk</h3>
+        <p>Step outside and move your body to reset your mind</p>
+      </div>
+      <div class="int-duration"><span class="num">10</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(48,209,88,0.15); color:var(--green)">&#129488;</div>
+      <div class="int-info">
+        <h3>Quick Stretch</h3>
+        <p>Release tension with a 3-minute desk stretch routine</p>
+      </div>
+      <div class="int-duration"><span class="num">3</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(191,90,242,0.15); color:var(--purple)">&#128172;</div>
+      <div class="int-info">
+        <h3>Text Someone</h3>
+        <p>Reach out to a friend or loved one — connection helps</p>
+      </div>
+      <div class="int-duration"><span class="num">2</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(255,159,10,0.15); color:var(--orange)">&#128244;</div>
+      <div class="int-info">
+        <h3>Screen Break</h3>
+        <p>Block 30 minutes of no-screen time</p>
+      </div>
+      <div class="int-duration"><span class="num">30</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(94,92,230,0.15); color:var(--indigo)">&#127926;</div>
+      <div class="int-info">
+        <h3>Nervous System Reset</h3>
+        <p>5-minute audio session to calm fight-or-flight</p>
+      </div>
+      <div class="int-duration"><span class="num">5</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+
+    <div class="intervention-card">
+      <div class="int-icon" style="background:rgba(255,69,58,0.15); color:var(--red)">&#10084;&#65039;</div>
+      <div class="int-info">
+        <h3>Overwhelmed Mode</h3>
+        <p>Emergency reset when everything feels like too much</p>
+      </div>
+      <div class="int-duration"><span class="num">5</span><br><span class="unit">min</span></div>
+      <span class="int-chevron">&#8250;</span>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS ===== -->
+  <div class="screen" id="screen-settings">
+    <div class="nav-title">Settings</div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Data Permissions</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-icon">&#10084;&#65039;</span>
+          <span class="settings-row-label">HealthKit</span>
+          <span class="settings-row-badge badge-green">Connected</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">&#9203;</span>
+          <span class="settings-row-label">Screen Time</span>
+          <span class="settings-row-badge badge-blue">Connect</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">&#128197;</span>
+          <span class="settings-row-label">Calendar</span>
+          <span class="settings-row-badge badge-gray">Optional</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Notifications</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-icon">&#128276;</span>
+          <span class="settings-row-label">Daily Check-In</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">&#128339;</span>
+          <span class="settings-row-label">Check-In Time</span>
+          <span class="settings-row-value">3:00 PM</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">&#9888;&#65039;</span>
+          <span class="settings-row-label">Risk Alerts</span>
+          <span class="settings-row-value" style="font-size:12px">When score rises</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-icon">&#127769;</span>
+          <span class="settings-row-label">Dark Mode</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Privacy & Data</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-icon">&#128228;</span>
+          <span class="settings-row-label">Export My Data</span>
+          <span class="int-chevron">&#8250;</span>
+        </div>
+        <div class="settings-row danger">
+          <span class="settings-row-icon">&#128465;</span>
+          <span class="settings-row-label">Delete All Data</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">&#128274;</span>
+          <span class="settings-row-label">Data Storage</span>
+          <span class="settings-row-value" style="font-size:12px">On-device only</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">About</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-label">Version</span>
+          <span class="settings-row-value">1.0.0 (MVP)</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Privacy</span>
+          <span class="settings-row-value" style="font-size:12px">All data stays on your device</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/><path d="M12 6.5L7.5 16h2.1l.9-2.2h3l.9 2.2h2.1L12 6.5zm-1.2 5.8l1.2-3 1.2 3h-2.4z" fill="none"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1"/><line x1="12" y1="9" x2="12" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="12" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="tab" onclick="switchTab('mood')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M8 14.5s1.5 2 4 2 4-2 4-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>Mood</span>
+    </div>
+    <div class="tab" onclick="switchTab('trends')">
+      <svg viewBox="0 0 24 24"><polyline points="4,18 8,12 12,14 16,8 20,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="4" y1="20" x2="20" y2="20" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>Trends</span>
+    </div>
+    <div class="tab" onclick="switchTab('interventions')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M12 12v4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M10 10h4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <span>Reset</span>
+    </div>
+    <div class="tab" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v3m0 16v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M1 12h3m16 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Settings</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Onboarding
+  const onboardingPages = [
+    { icon: '&#9881;&#65039;', title: 'Detect Burnout Early', desc: 'We analyze your sleep, activity, screen time, and mood to detect burnout before you feel it.' },
+    { icon: '&#128578;', title: '10-Second Daily Check-In', desc: 'One quick mood check per day helps our prediction get smarter over time.' },
+    { icon: '&#128200;', title: 'See Your Patterns', desc: 'Track trends over time and understand what triggers your stress.' },
+    { icon: '&#10084;&#65039;', title: 'Micro Interventions', desc: 'When risk rises, get quick 2–5 minute resets to calm your nervous system.' },
+  ];
+  let obPage = 0;
+
+  function nextOnboarding() {
+    obPage++;
+    if (obPage >= onboardingPages.length) {
+      closeOnboarding();
+      return;
+    }
+    updateOnboarding();
+  }
+
+  function updateOnboarding() {
+    const p = onboardingPages[obPage];
+    document.getElementById('obIcon').innerHTML = p.icon;
+    document.getElementById('obTitle').textContent = p.title;
+    document.getElementById('obDesc').textContent = p.desc;
+
+    const dots = document.querySelectorAll('#obDots .dot');
+    dots.forEach((d, i) => d.classList.toggle('active', i === obPage));
+
+    const btn = document.getElementById('obBtn');
+    if (obPage === onboardingPages.length - 1) {
+      btn.textContent = 'Get Started';
+      document.querySelector('.skip-btn').style.display = 'none';
+    }
+  }
+
+  function closeOnboarding() {
+    document.getElementById('onboarding').classList.add('hidden');
+  }
+
+  // Tab switching
+  function switchTab(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabs = ['dashboard', 'mood', 'trends', 'interventions', 'settings'];
+    const idx = tabs.indexOf(name);
+    document.querySelectorAll('.tab')[idx].classList.add('active');
+  }
+
+  // Mood selection
+  let selectedMoodEl = null;
+  function selectMood(el, label) {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMoodEl = { el, label };
+    document.getElementById('saveMoodBtn').classList.add('visible');
+  }
+
+  function saveMood() {
+    if (!selectedMoodEl) return;
+    const emoji = selectedMoodEl.el.querySelector('.mood-emoji').innerHTML;
+    document.getElementById('checkedEmoji').innerHTML = emoji;
+    document.getElementById('checkedLabel').textContent = 'Feeling ' + selectedMoodEl.label.toLowerCase();
+    document.getElementById('moodCheckIn').style.display = 'none';
+    document.getElementById('moodCheckedIn').style.display = 'block';
+  }
+
+  // Segment picker
+  function selectSegment(el) {
+    el.parentElement.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Filter chips
+  function filterChip(el) {
+    el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Animate score ring on load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const ring = document.getElementById('scoreRing');
+      const circumference = 2 * Math.PI * 82; // ~515.22
+      const score = 62;
+      const offset = circumference * (1 - score / 100);
+      ring.style.strokeDashoffset = offset;
+    }, 500);
+  });
+</script>
+</body>
+</html>
